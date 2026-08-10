@@ -2,6 +2,7 @@ import './style.css'
 import type { Star } from './types'
 import { initScene } from './scene'
 import { SpatialAudio } from './audio'
+import { Soundscape } from './soundscape'
 
 const app = document.querySelector<HTMLDivElement>('#app')!
 app.innerHTML = `
@@ -31,6 +32,7 @@ async function main() {
     await audio.resume()
     overlay.remove()
     audio.playStar(brightest)
+    new Soundscape(audio, stars).start()
     addTestButtons(audio, stars)
   })
 }

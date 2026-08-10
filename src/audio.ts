@@ -47,7 +47,7 @@ function buildPentatonicScale(): number[] {
 
 const PENTATONIC_SCALE = buildPentatonicScale()
 
-interface Range {
+export interface Range {
   min: number
   max: number
 }
@@ -83,6 +83,10 @@ export class SpatialAudio {
     const bvs = stars.map((s) => s.bv)
     this.vmagRange = { min: Math.min(...vmags), max: Math.max(...vmags) }
     this.bvRange = { min: Math.min(...bvs), max: Math.max(...bvs) }
+  }
+
+  getVmagRange(): Range {
+    return this.vmagRange
   }
 
   // カメラの向きをWeb Audio APIのAudioListenerへ反映する。
