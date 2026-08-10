@@ -2,7 +2,7 @@ import './style.css'
 import type { Star } from './types'
 import { initScene } from './scene'
 import { SpatialAudio } from './audio'
-import { Soundscape } from './soundscape'
+import { Soundscape, DENSITY_MIN, DENSITY_MAX, DENSITY_DEFAULT } from './soundscape'
 
 const app = document.querySelector<HTMLDivElement>('#app')!
 app.innerHTML = `
@@ -32,8 +32,10 @@ async function main() {
     await audio.resume()
     overlay.remove()
     audio.playStar(brightest)
-    new Soundscape(audio, stars).start()
+    const soundscape = new Soundscape(audio, stars)
+    soundscape.start()
     addTestButtons(audio, stars)
+    addDensitySlider(soundscape)
   })
 }
 
@@ -74,6 +76,34 @@ function addTestButtons(audio: SpatialAudio, stars: Star[]) {
 
   controls.append(singleButton, allButton, sequentialButton)
   app.appendChild(controls)
+}
+
+function addDensitySlider(soundscape: Soundscape) {
+  const wrapper = document.createElement('div')
+  wrapper.id = 'density-control'
+
+  const label = document.createElement('label')
+  label.htmlFor = 'density-slider'
+  const valueText = document.createElement('span')
+  valueText.textContent = `x${DENSITY_DEFAULT.toFixed(2)}`
+  label.textContent = '瞬きの頻度 '
+  label.appendChild(valueText)
+
+  const slider = document.createElement('input')
+  slider.id = 'density-slider'
+  slider.type = 'range'
+  slider.min = String(DENSITY_MIN)
+  slider.max = String(DENSITY_MAX)
+  slider.step = '0.25'
+  slider.value = String(DENSITY_DEFAULT)
+  slider.addEventListener('input', () => {
+    const density = Number(slider.value)
+    valueText.textContent = `x${density.toFixed(2)}`
+    soundscape.setDensity(density)
+  })
+
+  wrapper.append(label, slider)
+  app.appendChild(wrapper)
 }
 
 main()

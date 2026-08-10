@@ -7,12 +7,16 @@ import type { Star } from './types'
 // 星が独立に鳴るため、1個あたりの間隔をある程度長く取らないと全体では
 // 音の洪水になってしまう。星の数が増えるほど全体の発音レートも比例して
 // 増えるため、間隔は対象の星の数に応じて調整する必要がある（Findings.md参照。
-// フルカタログ285件のこの値では全星合計で平均約1.2回/秒の発音頻度になる）。
+// フルカタログ285件・density=1のこの値では全星合計で平均約1.2回/秒の発音頻度になる）。
 const INTERVAL_AT_BRIGHTEST_MS = 50000
 const INTERVAL_AT_DIMMEST_MS = 300000
 // 平均間隔に対してどれだけランダムに揺らすか（0.5〜1.5倍）
 const JITTER_MIN = 0.5
 const JITTER_MAX = 1.5
+
+export const DENSITY_MIN = 0.25
+export const DENSITY_MAX = 4
+export const DENSITY_DEFAULT = 1
 
 function mapRange(value: number, from: Range, to: Range): number {
   if (from.max === from.min) return (to.min + to.max) / 2
@@ -23,6 +27,9 @@ function mapRange(value: number, from: Range, to: Range): number {
 export class Soundscape {
   private timers = new Set<ReturnType<typeof setTimeout>>()
   private running = false
+  // 頻度の倍率。1が既定（星ごとの平均間隔をそのまま使う）、値が大きいほど
+  // 間隔が短くなり（頻繁に瞬く）、小さいほど間隔が長くなる（まばらに瞬く）。
+  private density = DENSITY_DEFAULT
 
   constructor(
     private audio: SpatialAudio,
@@ -44,11 +51,22 @@ export class Soundscape {
     this.timers.clear()
   }
 
+  // 頻度倍率を変更する。再生中なら即座に反映されるよう、待機中のタイマーを
+  // 新しい頻度で組み直す。
+  setDensity(density: number) {
+    this.density = density
+    if (this.running) {
+      this.stop()
+      this.start()
+    }
+  }
+
   private scheduleNext(star: Star, vmagRange: Range) {
-    const avgIntervalMs = mapRange(star.vmag, vmagRange, {
+    const baseAvgIntervalMs = mapRange(star.vmag, vmagRange, {
       min: INTERVAL_AT_BRIGHTEST_MS,
       max: INTERVAL_AT_DIMMEST_MS,
     })
+    const avgIntervalMs = baseAvgIntervalMs / this.density
     const jitter = JITTER_MIN + Math.random() * (JITTER_MAX - JITTER_MIN)
     const delayMs = avgIntervalMs * jitter
 

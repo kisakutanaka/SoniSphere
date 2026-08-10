@@ -72,3 +72,18 @@ body {
   justify-content: flex-end;
   gap: 0.5rem;
 }
+
+#density-control {
+  position: absolute;
+  left: 1rem;
+  top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+  color: #b8b8c8;
+}
+
+#density-control input[type='range'] {
+  width: 10rem;
+}
