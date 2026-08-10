@@ -18,14 +18,34 @@ const GAIN_DB_AT_DIMMEST = -20
 const DURATION_AT_BRIGHTEST = 2.2
 const DURATION_AT_DIMMEST = 0.7
 
-// 色(B-V)→音域(基音周波数)・音色(高次倍音の効かせ方)のマッピング範囲。
+// 色(B-V)→音色(高次倍音の効かせ方)のマッピング範囲。
 // B-Vが小さい(負)ほど青く高温、大きいほど赤く低温な星に対応する。
-// 青い星は高い音域・明るい（倍音が効いた）音色、赤い星は低い音域・
-// こもった（倍音が抑えられた）音色にする。
-const FUNDAMENTAL_AT_BLUEST = 880
-const FUNDAMENTAL_AT_REDDEST = 440
+// 青い星は明るい（倍音が効いた）音色、赤い星はこもった（倍音が抑えられた）音色にする。
 const BRIGHTNESS_AT_BLUEST = 1.4
 const BRIGHTNESS_AT_REDDEST = 0.7
+
+// 色(B-V)→音域（ペンタトニックスケール上の音程）のマッピングに使う音階。
+// 多数の星が同時に鳴っても不協和になりにくいよう、半音階ではなく
+// 長調ペンタトニック（ルートから見て0,2,4,7,9半音＝短2度・トライトーンを含まない
+// 音階）の音だけを使う。青い星ほど高い音、赤い星ほど低い音に量子化する。
+const PENTATONIC_INTERVALS = [0, 2, 4, 7, 9]
+const SCALE_ROOT_FREQ = 440
+const SCALE_OCTAVE_SPAN = 1
+const SCALE_FREQ_MIN = 330
+const SCALE_FREQ_MAX = 990
+
+function buildPentatonicScale(): number[] {
+  const notes: number[] = []
+  for (let octave = -SCALE_OCTAVE_SPAN; octave <= SCALE_OCTAVE_SPAN; octave++) {
+    for (const interval of PENTATONIC_INTERVALS) {
+      const freq = SCALE_ROOT_FREQ * 2 ** octave * 2 ** (interval / 12)
+      if (freq >= SCALE_FREQ_MIN && freq <= SCALE_FREQ_MAX) notes.push(freq)
+    }
+  }
+  return notes.sort((a, b) => a - b)
+}
+
+const PENTATONIC_SCALE = buildPentatonicScale()
 
 interface Range {
   min: number
@@ -105,11 +125,10 @@ export class SpatialAudio {
       this.vmagRange,
       { min: DURATION_AT_BRIGHTEST, max: DURATION_AT_DIMMEST },
     )
-    const fundamental = mapRange(
-      star.bv,
-      this.bvRange,
-      { min: FUNDAMENTAL_AT_BLUEST, max: FUNDAMENTAL_AT_REDDEST },
+    const noteIndex = Math.round(
+      mapRange(star.bv, this.bvRange, { min: PENTATONIC_SCALE.length - 1, max: 0 }),
     )
+    const fundamental = PENTATONIC_SCALE[noteIndex]
     const brightness = mapRange(
       star.bv,
       this.bvRange,
