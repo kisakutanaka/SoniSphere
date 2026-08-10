@@ -51,7 +51,16 @@ function addTestButtons(audio: SpatialAudio, stars: Star[]) {
     stars.forEach((star, i) => audio.playStar(star, i * 0.15))
   })
 
-  controls.append(singleButton, allButton)
+  // 前の星の余韻がおおよそ収まってから次が鳴るよう間隔を空け、
+  // 一つずつの音の違いを聴き取りやすくする（重なりの少ないメロディ的な聴き方）。
+  const SEQUENTIAL_GAP_SEC = 1.5
+  const sequentialButton = document.createElement('button')
+  sequentialButton.textContent = '一個ずつ順番に鳴らす'
+  sequentialButton.addEventListener('click', () => {
+    stars.forEach((star, i) => audio.playStar(star, i * SEQUENTIAL_GAP_SEC))
+  })
+
+  controls.append(singleButton, allButton, sequentialButton)
   app.appendChild(controls)
 }
 

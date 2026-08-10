@@ -66,6 +66,9 @@ body {
   position: absolute;
   right: 1rem;
   bottom: 1rem;
+  max-width: calc(100% - 2rem);
   display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 0.5rem;
 }
