@@ -6,22 +6,47 @@ SoniSphereの実装ロードマップ。「動くものが一つ増える」粒�
 
 ## Phase 0: 環境構築
 
-- [ ] TypeScript + ビルドツール（Vite等）の最小構成を作成
-- [ ] GitHub Pagesへのデプロイ導線を確認（空ページでよいので一度通す）
-- [ ] 実機確認: デプロイ→実機（スマホ含む）でアクセスできることを確認
+- [x] TypeScript + ビルドツール（Vite等）の最小構成を作成
+- [x] GitHub Pagesへのデプロイ導線を確認（空ページでよいので一度通す）
+- [x] 実機確認: デプロイ→実機（スマホ含む）でアクセスできることを確認
+
+メモ: Vite + vanilla TypeScript + npmで構成。GitHub Actions
+（`.github/workflows/deploy.yml`）でmainへのpushを起点にGitHub Pagesへ自動デプロイ。
+リポジトリ`kisakutanaka/SoniSphere`、公開URLは`https://kisakutanaka.github.io/SoniSphere/`
+（`vite.config.ts`の`base`をリポジトリ名に合わせて設定）。
 
 ## Phase 1: データ前処理パイプライン（縦の筋・第一歩）
 
-- [ ] `gaia_catalog/bright_stars_v3.5.csv`を読み、少数（最も明るい10〜20個程度）の
+- [x] `gaia_catalog/bright_stars_v3.5.csv`を読み、少数（最も明るい10〜20個程度）の
       星に絞って軽量JSONへ変換するビルド時スクリプトを作成
-- [ ] 変換後のJSONの形式（ra/dec/vmag/bv→アプリで使う座標・パラメータ）を決定
-- [ ] 実機確認: 生成したJSONがアプリから読み込めることを確認
+- [x] 変換後のJSONの形式（ra/dec/vmag/bv→アプリで使う座標・パラメータ）を決定
+- [x] 実機確認: 生成したJSONがアプリから読み込めることを確認
+
+メモ: `scripts/build-catalog.mjs`（`npm run build:catalog`）でCSV→
+`public/data/stars.json`を生成。vmag昇順（明るい順）で上位20件のみを対象とする
+プロトタイプ用の絞り込み（Phase 7でフルカタログへ拡張予定）。
+各星は`{id, ra, dec, vmag, bv, dir:[x,y,z]}`の形式で、`dir`は赤経・赤緯から
+変換した天球上の単位ベクトル（dec=+90度をz=+1とする）。最も明るい星（vmag=-1.46,
+ra≈101.29, dec≈-16.72）がシリウスの実際の座標と一致することを確認済み。
+`main.ts`から`fetch(import.meta.env.BASE_URL + 'data/stars.json')`で読み込み、
+件数を画面表示する形でプレビューサーバー上での疎通を確認した。
 
 ## Phase 2: 3D天球の可視化
 
-- [ ] 少数の星を全天球上（3D）に配置して表示する最小実装
-- [ ] マウス/タッチでの視点操作
+- [x] 少数の星を全天球上（3D）に配置して表示する最小実装
+- [x] マウス/タッチでの視点操作
 - [ ] 実機確認: デプロイ→実機で星の配置と視点操作を確認
+
+メモ: Three.jsを採用。カメラを原点付近に固定し、`src/look-controls.ts`の
+独自ドラッグ操作（Pointer Eventsでマウス/タッチを統一的に処理）でyaw/pitchを
+回転させる方式にした（外部の対象を周回するOrbitControlsとは逆の「天球の内側から
+見回す」動き）。この方式はPhase 8の端末向き（DeviceOrientation）連携にも
+そのまま拡張しやすい。星はvmagに応じてサイズを線形マッピングした小球体
+（`MeshBasicMaterial`）で表現（Phase 4で明るさ・色の音響マッピングと合わせて
+見直す可能性あり）。Playwrightでdevサーバーを起動しヘッドレスブラウザで検証:
+星の描画、ステータス文言表示、ドラッグによる視点回転（星の画面上の位置が変化）を
+スクリーンショットで確認し、コンソールエラーもなし。GitHub Pages実機確認は
+Phase 1の変更と合わせてpush後に実施。
 
 ## Phase 3: Web Audio APIによる3D音響（基本）
 

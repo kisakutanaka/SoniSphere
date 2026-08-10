@@ -6,10 +6,15 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "build:catalog": "node scripts/build-catalog.mjs"
   },
   "devDependencies": {
+    "@types/three": "^0.185.4",
     "typescript": "^5.8.3",
     "vite": "^6.3.5"
+  },
+  "dependencies": {
+    "three": "^0.185.1"
   }
 }
