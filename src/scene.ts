@@ -5,7 +5,11 @@ import { LookControls } from './look-controls'
 // 星を配置する天球の半径。カメラは原点付近に置き、内側から見回す構成にする。
 const SPHERE_RADIUS = 50
 
-export function initScene(container: HTMLElement, stars: Star[]) {
+export function initScene(
+  container: HTMLElement,
+  stars: Star[],
+  onTick?: (camera: THREE.PerspectiveCamera) => void,
+) {
   const scene = new THREE.Scene()
   scene.background = new THREE.Color(0x02020a)
 
@@ -47,6 +51,7 @@ export function initScene(container: HTMLElement, stars: Star[]) {
 
   function animate() {
     requestAnimationFrame(animate)
+    onTick?.(camera)
     renderer.render(scene, camera)
   }
   animate()

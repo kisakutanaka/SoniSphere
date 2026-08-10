@@ -41,3 +41,29 @@ body {
   color: #b8b8c8;
   pointer-events: none;
 }
+
+#start-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(2, 2, 10, 0.85);
+}
+
+#start-overlay button,
+#test-tone-button {
+  font-size: 1rem;
+  padding: 0.75rem 1.5rem;
+  border-radius: 999px;
+  border: 1px solid #666;
+  background: #15151f;
+  color: #e8e8f0;
+  cursor: pointer;
+}
+
+#test-tone-button {
+  position: absolute;
+  right: 1rem;
+  bottom: 1rem;
+}
