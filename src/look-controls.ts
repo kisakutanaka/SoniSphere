@@ -10,6 +10,9 @@ export class LookControls {
   private dragging = false
   private lastX = 0
   private lastY = 0
+  // 端末の向きによる操作（DeviceOrientationControls）と併用しないよう、
+  // 一時的にドラッグ操作を無効化できるようにする。
+  private enabled = true
 
   constructor(
     private camera: THREE.PerspectiveCamera,
@@ -21,7 +24,13 @@ export class LookControls {
     domElement.addEventListener('pointercancel', this.onPointerUp)
   }
 
+  setEnabled(enabled: boolean) {
+    this.enabled = enabled
+    this.dragging = false
+  }
+
   private onPointerDown = (e: PointerEvent) => {
+    if (!this.enabled) return
     this.dragging = true
     this.lastX = e.clientX
     this.lastY = e.clientY
@@ -29,7 +38,7 @@ export class LookControls {
   }
 
   private onPointerMove = (e: PointerEvent) => {
-    if (!this.dragging) return
+    if (!this.enabled || !this.dragging) return
     const dx = e.clientX - this.lastX
     const dy = e.clientY - this.lastY
     this.lastX = e.clientX

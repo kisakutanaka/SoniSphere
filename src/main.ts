@@ -3,6 +3,8 @@ import type { Star } from './types'
 import { initScene } from './scene'
 import { SpatialAudio } from './audio'
 import { Soundscape, DENSITY_MIN, DENSITY_MAX, DENSITY_DEFAULT } from './soundscape'
+import { DeviceOrientationControls } from './device-orientation-controls'
+import type { LookControls } from './look-controls'
 
 const app = document.querySelector<HTMLDivElement>('#app')!
 app.innerHTML = `
@@ -21,7 +23,13 @@ async function main() {
   const audio = new SpatialAudio()
   audio.setCatalogRange(stars)
   const container = document.querySelector<HTMLDivElement>('#scene-container')!
-  initScene(container, stars, (camera) => audio.updateListenerFromCamera(camera))
+
+  let deviceOrientationControls: DeviceOrientationControls | null = null
+  const { camera, controls: lookControls } = initScene(container, stars, (cam) => {
+    deviceOrientationControls?.update()
+    audio.updateListenerFromCamera(cam)
+  })
+  deviceOrientationControls = new DeviceOrientationControls(camera)
 
   document.querySelector<HTMLParagraphElement>('#status')!.textContent =
     `${stars.length}個の星を表示中（ドラッグ/スワイプで見回せます）`
@@ -36,7 +44,17 @@ async function main() {
     soundscape.start()
     addTestButtons(audio, stars)
     addDensitySlider(soundscape)
+    if (isLikelyMobile()) {
+      addOrientationToggle(lookControls, deviceOrientationControls!)
+    }
   })
+}
+
+// deviceorientationはタッチ非対応のデスクトップでもイベント自体は存在しうるが、
+// 実際にセンサーが動くのは主にスマートフォンのため、タッチ対応端末に限定して
+// 「端末の向きで操作する」ボタンを出す。
+function isLikelyMobile(): boolean {
+  return DeviceOrientationControls.isSupported() && navigator.maxTouchPoints > 0
 }
 
 // 聴き比べボタン用に、明るさ順に並んだ星から等間隔に代表サンプルを取り出す。
@@ -76,6 +94,41 @@ function addTestButtons(audio: SpatialAudio, stars: Star[]) {
 
   controls.append(singleButton, allButton, sequentialButton)
   app.appendChild(controls)
+}
+
+function addOrientationToggle(
+  lookControls: LookControls,
+  deviceOrientationControls: DeviceOrientationControls,
+) {
+  const status = document.querySelector<HTMLParagraphElement>('#status')!
+  const button = document.createElement('button')
+  button.id = 'orientation-toggle'
+  button.textContent = '端末の向きで操作する'
+  let active = false
+
+  button.addEventListener('click', async () => {
+    if (!active) {
+      const granted = await DeviceOrientationControls.requestPermission()
+      if (!granted) {
+        status.textContent = '端末の向きへのアクセスが許可されませんでした'
+        return
+      }
+      deviceOrientationControls.connect()
+      lookControls.setEnabled(false)
+      active = true
+      button.textContent = 'ドラッグ操作に戻す'
+    } else {
+      deviceOrientationControls.disconnect()
+      lookControls.setEnabled(true)
+      active = false
+      button.textContent = '端末の向きで操作する'
+    }
+  })
+
+  // 頻度スライダーと同じ左上のパネルにまとめ、下部のテストボタン群との
+  // 衝突（特に縦長のスマートフォン画面）を避ける。
+  const panel = document.querySelector<HTMLDivElement>('#density-control') ?? app
+  panel.appendChild(button)
 }
 
 function addDensitySlider(soundscape: Soundscape) {
