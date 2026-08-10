@@ -18,6 +18,7 @@ async function main() {
   const brightest = stars[0]
 
   const audio = new SpatialAudio()
+  audio.setCatalogRange(stars)
   const container = document.querySelector<HTMLDivElement>('#scene-container')!
   initScene(container, stars, (camera) => audio.updateListenerFromCamera(camera))
 
@@ -29,17 +30,27 @@ async function main() {
   startButton.addEventListener('click', async () => {
     await audio.resume()
     overlay.remove()
-    audio.playBellAt(brightest.dir)
-    addTestToneButton(audio, brightest)
+    audio.playStar(brightest)
+    addTestButtons(audio, stars)
   })
 }
 
-function addTestToneButton(audio: SpatialAudio, star: Star) {
-  const button = document.createElement('button')
-  button.id = 'test-tone-button'
-  button.textContent = 'テスト音を鳴らす（最も明るい星）'
-  button.addEventListener('click', () => audio.playBellAt(star.dir))
-  app.appendChild(button)
+function addTestButtons(audio: SpatialAudio, stars: Star[]) {
+  const controls = document.createElement('div')
+  controls.id = 'test-controls'
+
+  const singleButton = document.createElement('button')
+  singleButton.textContent = 'テスト音を鳴らす（最も明るい星）'
+  singleButton.addEventListener('click', () => audio.playStar(stars[0]))
+
+  const allButton = document.createElement('button')
+  allButton.textContent = '全ての星を聴き比べる'
+  allButton.addEventListener('click', () => {
+    stars.forEach((star, i) => audio.playStar(star, i * 0.15))
+  })
+
+  controls.append(singleButton, allButton)
+  app.appendChild(controls)
 }
 
 main()

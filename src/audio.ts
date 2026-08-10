@@ -1,16 +1,51 @@
 import * as THREE from 'three'
+import type { Star } from './types'
 
 // 星の音は外部音源を使わず、非整数倍音のサイン波を重ねてベル/グロッケン風に
 // その場で合成する（Plan.mdの「キラキラした音」方針、軽量・同梱不要にするため）。
 const BELL_PARTIALS = [1, 2.41, 3.83, 5.43]
-const BELL_DURATION = 1.4
 
 // 音源を天球上のどの半径に置くか。視覚上の天球（SPHERE_RADIUS=50）とは独立で、
 // PannerNodeのHRTF定位が効きやすい距離感に合わせる。
 const AUDIO_RADIUS = 8
 
+// 明るさ(vmag)→音量(dB)・余韻(秒)のマッピング範囲。
+// 等級と音量(dB)はどちらも対数尺度なので、等級を線形にdBへ写すのは
+// 「等級差が一定なら聴感上のラウドネス差も一定」という素直な対応になる
+// （Findings.md参照）。
+const GAIN_DB_AT_BRIGHTEST = -2
+const GAIN_DB_AT_DIMMEST = -20
+const DURATION_AT_BRIGHTEST = 2.2
+const DURATION_AT_DIMMEST = 0.7
+
+// 色(B-V)→音域(基音周波数)・音色(高次倍音の効かせ方)のマッピング範囲。
+// B-Vが小さい(負)ほど青く高温、大きいほど赤く低温な星に対応する。
+// 青い星は高い音域・明るい（倍音が効いた）音色、赤い星は低い音域・
+// こもった（倍音が抑えられた）音色にする。
+const FUNDAMENTAL_AT_BLUEST = 880
+const FUNDAMENTAL_AT_REDDEST = 440
+const BRIGHTNESS_AT_BLUEST = 1.4
+const BRIGHTNESS_AT_REDDEST = 0.7
+
+interface Range {
+  min: number
+  max: number
+}
+
+function mapRange(value: number, from: Range, to: Range): number {
+  if (from.max === from.min) return (to.min + to.max) / 2
+  const t = (value - from.min) / (from.max - from.min)
+  return THREE.MathUtils.clamp(THREE.MathUtils.lerp(to.min, to.max, t), Math.min(to.min, to.max), Math.max(to.min, to.max))
+}
+
+function dbToGain(db: number): number {
+  return 10 ** (db / 20)
+}
+
 export class SpatialAudio {
   private ctx: AudioContext
+  private vmagRange: Range = { min: 0, max: 1 }
+  private bvRange: Range = { min: 0, max: 1 }
 
   constructor() {
     this.ctx = new AudioContext()
@@ -18,6 +53,16 @@ export class SpatialAudio {
 
   async resume() {
     await this.ctx.resume()
+  }
+
+  // 星カタログ全体でのvmag/bvの分布を記録する。以後の音響パラメータ計算は
+  // この分布の中での相対位置（このカタログの中で何番目に明るい/赤いか）を
+  // 基準にする。
+  setCatalogRange(stars: Star[]) {
+    const vmags = stars.map((s) => s.vmag)
+    const bvs = stars.map((s) => s.bv)
+    this.vmagRange = { min: Math.min(...vmags), max: Math.max(...vmags) }
+    this.bvRange = { min: Math.min(...bvs), max: Math.max(...bvs) }
   }
 
   // カメラの向きをWeb Audio APIのAudioListenerへ反映する。
@@ -45,37 +90,61 @@ export class SpatialAudio {
     }
   }
 
-  // 星の方向(単位ベクトル)からベル音を1回鳴らす。
-  playBellAt(dir: readonly [number, number, number]) {
-    const now = this.ctx.currentTime
+  // 星の明るさ・色に応じた音を、星の方向からベル音として鳴らす。
+  // delaySecでスケジュール開始を遅らせられる（複数星の聴き比べ用）。
+  playStar(star: Star, delaySec = 0) {
+    const now = this.ctx.currentTime + delaySec
+
+    const gainDb = mapRange(
+      star.vmag,
+      this.vmagRange,
+      { min: GAIN_DB_AT_BRIGHTEST, max: GAIN_DB_AT_DIMMEST },
+    )
+    const duration = mapRange(
+      star.vmag,
+      this.vmagRange,
+      { min: DURATION_AT_BRIGHTEST, max: DURATION_AT_DIMMEST },
+    )
+    const fundamental = mapRange(
+      star.bv,
+      this.bvRange,
+      { min: FUNDAMENTAL_AT_BLUEST, max: FUNDAMENTAL_AT_REDDEST },
+    )
+    const brightness = mapRange(
+      star.bv,
+      this.bvRange,
+      { min: BRIGHTNESS_AT_BLUEST, max: BRIGHTNESS_AT_REDDEST },
+    )
+
     const panner = new PannerNode(this.ctx, {
       panningModel: 'HRTF',
       distanceModel: 'inverse',
-      positionX: dir[0] * AUDIO_RADIUS,
-      positionY: dir[1] * AUDIO_RADIUS,
-      positionZ: dir[2] * AUDIO_RADIUS,
+      positionX: star.dir[0] * AUDIO_RADIUS,
+      positionY: star.dir[1] * AUDIO_RADIUS,
+      positionZ: star.dir[2] * AUDIO_RADIUS,
     })
     panner.connect(this.ctx.destination)
 
+    const peakGain = dbToGain(gainDb)
     const envelope = this.ctx.createGain()
     envelope.gain.setValueAtTime(0, now)
-    envelope.gain.linearRampToValueAtTime(0.35, now + 0.008)
-    envelope.gain.exponentialRampToValueAtTime(0.0001, now + BELL_DURATION)
+    envelope.gain.linearRampToValueAtTime(peakGain, now + 0.008)
+    envelope.gain.exponentialRampToValueAtTime(0.0001, now + duration)
     envelope.connect(panner)
 
-    const fundamental = 660
     BELL_PARTIALS.forEach((mult, i) => {
       const osc = this.ctx.createOscillator()
       osc.type = 'sine'
       osc.frequency.value = fundamental * mult
 
+      // brightnessが高いほど高次倍音の減衰が緩やかになり、明るい（青い星の）音色になる。
       const partialGain = this.ctx.createGain()
-      partialGain.gain.value = 1 / (i + 1)
+      partialGain.gain.value = brightness ** i / (i + 1)
 
       osc.connect(partialGain)
       partialGain.connect(envelope)
       osc.start(now)
-      osc.stop(now + BELL_DURATION + 0.1)
+      osc.stop(now + duration + 0.1)
     })
   }
 }
