@@ -1,8 +1,8 @@
 // Gaia由来の恒星カタログCSVを、アプリで使う軽量JSONへ変換するビルド時スクリプト。
 // 実行: npm run build:catalog
 //
-// Phase 1時点では縦の筋を通すため、最も明るい上位STAR_LIMIT個のみを対象とする。
-// Phase 7でフルカタログへ拡張する（Step.md参照）。
+// STAR_LIMITで対象数を絞れる（Phase 1〜6ではnullにせず20件で縦の筋を確認していた）。
+// Phase 7でnull（フルカタログ、約3等星までの全285件）に変更した。
 
 import { readFileSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
@@ -11,7 +11,7 @@ import path from 'node:path'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const SRC_CSV = path.join(__dirname, '../gaia_catalog/bright_stars_v3.5.csv')
 const OUT_JSON = path.join(__dirname, '../public/data/stars.json')
-const STAR_LIMIT = 20
+const STAR_LIMIT = null
 
 function parseCsv(text) {
   const [headerLine, ...lines] = text.trim().split('\n')
@@ -42,7 +42,7 @@ const rows = parseCsv(readFileSync(SRC_CSV, 'utf-8'))
 
 const stars = rows
   .sort((a, b) => a.vmag - b.vmag) // 明るい(vmagが小さい)順
-  .slice(0, STAR_LIMIT)
+  .slice(0, STAR_LIMIT ?? rows.length)
   .map((row, i) => ({
     id: i,
     ra: row.ra,

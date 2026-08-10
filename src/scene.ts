@@ -31,16 +31,22 @@ export function initScene(
   const vmagMin = Math.min(...vmags)
   const vmagMax = Math.max(...vmags)
 
-  for (const star of stars) {
+  // フルカタログ（Phase 7で約300件）でも描画コストを抑えるため、星ごとに
+  // Meshを作らずInstancedMeshへまとめる（ドローコールが星の数によらず1回になる）。
+  const geometry = new THREE.SphereGeometry(1, 8, 8)
+  const material = new THREE.MeshBasicMaterial({ color: 0xffffff })
+  const instancedStars = new THREE.InstancedMesh(geometry, material, stars.length)
+  const dummy = new THREE.Object3D()
+  stars.forEach((star, i) => {
     // 明るい星（vmagが小さい）ほど大きく描画する簡易表現（Phase 2時点の仮実装）。
     const size = THREE.MathUtils.mapLinear(star.vmag, vmagMin, vmagMax, 0.6, 0.15)
-    const geometry = new THREE.SphereGeometry(size, 8, 8)
-    const material = new THREE.MeshBasicMaterial({ color: 0xffffff })
-    const mesh = new THREE.Mesh(geometry, material)
     const [x, y, z] = star.dir
-    mesh.position.set(x * SPHERE_RADIUS, y * SPHERE_RADIUS, z * SPHERE_RADIUS)
-    scene.add(mesh)
-  }
+    dummy.position.set(x * SPHERE_RADIUS, y * SPHERE_RADIUS, z * SPHERE_RADIUS)
+    dummy.scale.setScalar(size)
+    dummy.updateMatrix()
+    instancedStars.setMatrixAt(i, dummy.matrix)
+  })
+  scene.add(instancedStars)
 
   function onResize() {
     camera.aspect = container.clientWidth / container.clientHeight

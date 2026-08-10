@@ -37,18 +37,30 @@ async function main() {
   })
 }
 
+// 聴き比べボタン用に、明るさ順に並んだ星から等間隔に代表サンプルを取り出す。
+// フルカタログ（約300件）をそのまま鳴らすと再生に何分もかかってしまうため。
+const SAMPLE_SIZE = 20
+
+function sampleEvenly(stars: Star[], count: number): Star[] {
+  if (stars.length <= count) return stars
+  return Array.from({ length: count }, (_, i) =>
+    stars[Math.round((i * (stars.length - 1)) / (count - 1))],
+  )
+}
+
 function addTestButtons(audio: SpatialAudio, stars: Star[]) {
   const controls = document.createElement('div')
   controls.id = 'test-controls'
+  const sample = sampleEvenly(stars, SAMPLE_SIZE)
 
   const singleButton = document.createElement('button')
   singleButton.textContent = 'テスト音を鳴らす（最も明るい星）'
   singleButton.addEventListener('click', () => audio.playStar(stars[0]))
 
   const allButton = document.createElement('button')
-  allButton.textContent = '全ての星を聴き比べる'
+  allButton.textContent = `代表的な${sample.length}個を聴き比べる`
   allButton.addEventListener('click', () => {
-    stars.forEach((star, i) => audio.playStar(star, i * 0.15))
+    sample.forEach((star, i) => audio.playStar(star, i * 0.15))
   })
 
   // 前の星の余韻がおおよそ収まってから次が鳴るよう間隔を空け、
@@ -57,7 +69,7 @@ function addTestButtons(audio: SpatialAudio, stars: Star[]) {
   const sequentialButton = document.createElement('button')
   sequentialButton.textContent = '一個ずつ順番に鳴らす'
   sequentialButton.addEventListener('click', () => {
-    stars.forEach((star, i) => audio.playStar(star, i * SEQUENTIAL_GAP_SEC))
+    sample.forEach((star, i) => audio.playStar(star, i * SEQUENTIAL_GAP_SEC))
   })
 
   controls.append(singleButton, allButton, sequentialButton)
